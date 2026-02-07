@@ -15,6 +15,21 @@ int empty_input(const char* s){
   return 1;
 }
 
+//trim input string
+char* trim(char* s){
+  char *end;
+
+  while(*s==' ' || *s=='\t') s++;
+  if(s==0) return s;
+
+  end = s + (strlen(s)-1);
+
+  while(end>s && (*end==' ' || *end=='\t')) end--;
+  *(end+1) = '\0';
+
+  return s;
+}
+
 // Create process function
 void run_command(char *command) {
     STARTUPINFO si;
@@ -24,10 +39,21 @@ void run_command(char *command) {
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    char full_cmd[1024];
-    snprintf(full_cmd, sizeof(full_cmd), "cmd.exe /c %s", command);
-
     if (!CreateProcess(
+            NULL,
+            command,
+            NULL,
+            NULL,
+            FALSE,
+            0,
+            NULL,
+            NULL,
+            &si,
+            &pi)) {
+      char full_cmd[1024];
+      snprintf(full_cmd, sizeof(full_cmd), "cmd.exe /c %s", command);
+
+      if(!CreateProcess(
             NULL,
             full_cmd,
             NULL,
@@ -37,9 +63,10 @@ void run_command(char *command) {
             NULL,
             NULL,
             &si,
-            &pi)) {
-        printf("Failed to execute command.\n");
-        return;
+            &pi)){
+      printf("Failed to execute command.\n");
+       return;
+            }     
     }
 
     WaitForSingleObject(pi.hProcess, INFINITE);
@@ -67,13 +94,15 @@ int main(){
       continue;
     }
 
-    if(strcmp(input_buff, "exit")==0){
+    char *command = trim(input_buff);
+
+    if(strcmp(command, "exit")==0){
       printf("Exiting the shell...\n");
       break;
     }
 
-    if(strncmp(input_buff, "cd ", 3)==0){
-      char *path = input_buff + 3;
+    if(strncmp(command, "cd ", 3)==0){
+      char *path = command + 3;
       if(SetCurrentDirectory(path)){
         printf("Current directory changed to: %s\n", path);
         continue;
@@ -84,7 +113,7 @@ int main(){
       }
     }
     
-    run_command(input_buff);    
+    run_command(command);    
   }
 
   return 0;
