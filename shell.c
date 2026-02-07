@@ -4,6 +4,17 @@
 
 #define MAX_INPUT 1024
 
+//function to check if input is blank
+int empty_input(const char* s){
+  while(*s){
+    if(*s!=' ' && *s!='\t' && *s!='\n'){
+      return 0;
+    }
+    s++;
+  }
+  return 1;
+}
+
 // Create process function
 void run_command(char *command) {
     STARTUPINFO si;
@@ -13,9 +24,12 @@ void run_command(char *command) {
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
+    char full_cmd[1024];
+    snprintf(full_cmd, sizeof(full_cmd), "cmd.exe /c %s", command);
+
     if (!CreateProcess(
             NULL,
-            command,
+            full_cmd,
             NULL,
             NULL,
             FALSE,
@@ -48,6 +62,10 @@ int main(){
     }
 
     input_buff[strcspn(input_buff, "\n")] = '\0';
+
+    if(empty_input(input_buff)){
+      continue;
+    }
 
     if(strcmp(input_buff, "exit")==0){
       printf("Exiting the shell...\n");
