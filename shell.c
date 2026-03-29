@@ -20,7 +20,7 @@ char* trim(char* s){
   char *end;
 
   while(*s==' ' || *s=='\t') s++;
-  if(s==0) return s;
+  if(*s == '\0') return s;
 
   end = s + (strlen(s)-1);
 
@@ -30,8 +30,24 @@ char* trim(char* s){
   return s;
 }
 
+//split the input into tokens to separate commands and parameters
+int split_command(char* input, char* args[], int max_args){
+
+  int count = 0;
+  char* token = strtok(input, " \t");
+
+  while(token!=NULL && count<max_args-1){
+    args[count] = token;
+    count++;
+    token = strtok(NULL, " \t");
+  }
+
+  args[count] = NULL;
+  return count;
+}
+
 // Create process function
-void run_command(char *command) {
+void run_command(char *command, HANDLE hOutput) {
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
@@ -39,12 +55,16 @@ void run_command(char *command) {
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdOutput = hOutput;
+    si.hStdError = hOutput; // optional: redirect errors too    
+
     if (!CreateProcess(
             NULL,
             command,
             NULL,
             NULL,
-            FALSE,
+            TRUE,
             0,
             NULL,
             NULL,
@@ -58,7 +78,7 @@ void run_command(char *command) {
             full_cmd,
             NULL,
             NULL,
-            FALSE,
+            TRUE,
             0,
             NULL,
             NULL,
@@ -113,7 +133,48 @@ int main(){
       }
     }
     
-    run_command(command);    
+    char *redirect = strchr(command, '>');
+
+    if(redirect){
+      *redirect = '\0';
+      char *cmd = trim(command);
+      char *filename = trim(redirect+1);
+
+      SECURITY_ATTRIBUTES sa;
+      sa.nLength = sizeof(sa);
+      sa.lpSecurityDescriptor = NULL;
+      sa.bInheritHandle = TRUE;
+
+      HANDLE hFile = CreateFile(
+            filename,
+            GENERIC_WRITE,
+            0,
+            &sa,
+            CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL
+        );
+      if (hFile == INVALID_HANDLE_VALUE) {
+      printf("Failed to open file.\n");
+      continue;
+      }
+
+      run_command(cmd, hFile);
+      CloseHandle(hFile);
+    }
+
+    if(!redirect){
+      run_command(command, GetStdHandle(STD_OUTPUT_HANDLE));
+    }
+
+    // char* arg[64];
+    // int arg_count = split_command(command, arg, 64);
+    
+    // for(int i=0; i<arg_count; i++){
+    //   printf("arg[%d] = %s\n", i, arg[i]);
+    // }
+    
+    // run_command(command);    
   }
 
   return 0;
