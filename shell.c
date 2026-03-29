@@ -47,7 +47,7 @@ int split_command(char* input, char* args[], int max_args){
 }
 
 // Create process function
-void run_command(char *command, HANDLE hOutput) {
+void run_command(char *command, HANDLE hInput, HANDLE hOutput) {
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
@@ -56,8 +56,9 @@ void run_command(char *command, HANDLE hOutput) {
     ZeroMemory(&pi, sizeof(pi));
 
     si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = hInput;
     si.hStdOutput = hOutput;
-    si.hStdError = hOutput; // optional: redirect errors too    
+    si.hStdError = hOutput; // optional: out_redirect errors too    
 
     if (!CreateProcess(
             NULL,
@@ -133,19 +134,25 @@ int main(){
       }
     }
     
-    char *redirect = strchr(command, '>');
+    //redirection --------------------------------------------------------
 
-    if(redirect){
-      *redirect = '\0';
-      char *cmd = trim(command);
-      char *filename = trim(redirect+1);
+    //1. Handle creation----------------
+    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 
-      SECURITY_ATTRIBUTES sa;
+    SECURITY_ATTRIBUTES sa;
       sa.nLength = sizeof(sa);
       sa.lpSecurityDescriptor = NULL;
       sa.bInheritHandle = TRUE;
 
-      HANDLE hFile = CreateFile(
+    //2. output redirection----------------------------
+    char *out_redirect = strchr(command, '>');
+
+    if(out_redirect){
+      *out_redirect = '\0';
+      char *filename = trim(out_redirect+1);
+
+      hOutput = CreateFile(
             filename,
             GENERIC_WRITE,
             0,
@@ -154,19 +161,51 @@ int main(){
             FILE_ATTRIBUTE_NORMAL,
             NULL
         );
-      if (hFile == INVALID_HANDLE_VALUE) {
+      if (hOutput == INVALID_HANDLE_VALUE) {
       printf("Failed to open file.\n");
       continue;
       }
-
-      run_command(cmd, hFile);
-      CloseHandle(hFile);
     }
 
-    if(!redirect){
-      run_command(command, GetStdHandle(STD_OUTPUT_HANDLE));
+    //3. input redirection------------------------------------------------
+    char *input_redirect = strchr(command, '<');
+
+    if(input_redirect){
+      *input_redirect = '\0';
+      char* filename = trim(input_redirect+1);
+
+      hInput = CreateFile(
+          filename,
+          GENERIC_READ,
+          FILE_SHARE_READ,
+          &sa,
+          OPEN_EXISTING,
+          FILE_ATTRIBUTE_NORMAL,
+          NULL
+      );
+
+      if(hInput == INVALID_HANDLE_VALUE){
+          printf("Failed to open input file.\n");
+          continue;
+      }
     }
 
+    //3. run command-----------------------
+    command = trim(command);
+
+    run_command(command, hInput, hOutput);
+
+    //4. CLEANUP
+    if(hInput != GetStdHandle(STD_INPUT_HANDLE)){
+        CloseHandle(hInput);
+    }
+
+    if(hOutput != GetStdHandle(STD_OUTPUT_HANDLE)){
+        CloseHandle(hOutput);
+    }
+    //--------------------------------------------------------------------
+
+    
     // char* arg[64];
     // int arg_count = split_command(command, arg, 64);
     
