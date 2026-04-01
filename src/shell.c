@@ -100,7 +100,6 @@ void run_command(char *command, HANDLE hInput, HANDLE hOutput) {
 // MAIN FUNCTION-----------------------------
 int main(){
   char input_buff[MAX_INPUT];
-
   while(1){
     printf("bomb-shell> ");
     fflush(stdout);
@@ -205,7 +204,7 @@ int main(){
     }
     //--------------------------------------------------------------------
 
-    
+
     // char* arg[64];
     // int arg_count = split_command(command, arg, 64);
     
@@ -216,5 +215,6 @@ int main(){
     // run_command(command);    
   }
 
+  printf("\n");
   return 0;
 }
